@@ -13,12 +13,17 @@ namespace FlightManagerApp.Controllers
         private readonly string _ldapServer;
         private readonly string _ldapDomain;
         private readonly int _ldapPort;
+        private readonly bool _ldapUseSsl;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController()
+        public AuthController(IConfiguration config, ILogger<AuthController> logger)
         {
-            _ldapServer = Environment.GetEnvironmentVariable("LDAP_SERVER") ?? "";
-            _ldapDomain = Environment.GetEnvironmentVariable("LDAP_DOMAIN") ?? "";
-            _ldapPort = 389; // 636 si SSL/TLS est activé
+            _logger = logger;
+            // Prioriser appsettings.json, sinon fallback sur variables d'environnement
+            _ldapServer = config["LdapSettings:Server"] ?? Environment.GetEnvironmentVariable("LDAP_SERVER") ?? "";
+            _ldapDomain = config["LdapSettings:Domain"] ?? Environment.GetEnvironmentVariable("LDAP_DOMAIN") ?? "";
+            _ldapPort = config.GetValue<int>("LdapSettings:Port", 636); // 636 par défaut pour LDAPS
+            _ldapUseSsl = config.GetValue<bool>("LdapSettings:UseSsl", true);
         }
         [HttpPost("login")]
         [Consumes("application/json")]
@@ -34,23 +39,11 @@ namespace FlightManagerApp.Controllers
 
         private bool AuthenticateUser(string domain, string username, string password)
         {
-            if (username.Trim() == "" || password.Trim() == "")
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             {
-                Console.WriteLine($" Certainn");
+                _logger.LogWarning("Tentative d'authentification avec nom d'utilisateur ou mot de passe vide.");
                 return false;
             }
-            // try
-            // {
-            //     using (var context = new PrincipalContext(ContextType.Domain, domain))
-            //     {
-            //         return context.ValidateCredentials(username, password);
-            //     }
-            // }
-            // catch(Exception ex)
-            // {
-            //     Console.WriteLine($"Erreur lors de l'authentification : {ex.Message}");
-            //     return false;
-            // }
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -72,7 +65,7 @@ namespace FlightManagerApp.Controllers
             }
             catch(Exception ex)
             {
-                Console.WriteLine($"Erreur lors de l'authentification : {ex.Message}");
+                _logger.LogError(ex, "Erreur lors de l'authentification Windows de {Username}", username);
                 return false;
             }
         }
@@ -81,23 +74,22 @@ namespace FlightManagerApp.Controllers
         {
             try
             {
-              
-                // Console.WriteLine($"[Linux] Tentative d'authentification LDAP pour {username}@{domain} via {ldapServer}:{ldapPort}");
                 string bindDn = $"{username}@{domain}";
                 using (var ldapConnection = new LdapConnection(new LdapDirectoryIdentifier(_ldapServer, _ldapPort)))
                 {
+                    ldapConnection.SessionOptions.SecureSocketLayer = _ldapUseSsl;
                     ldapConnection.AuthType = AuthType.Basic;
                     ldapConnection.SessionOptions.ProtocolVersion = 3;
                     ldapConnection.Credential = new NetworkCredential(bindDn, password);
                     ldapConnection.Bind(); // Teste la connexion
 
-                    Console.WriteLine("[Linux] Authentification LDAP réussie !");
+                    _logger.LogInformation("[Linux] Authentification LDAP réussie pour {Username}", username);
                     return true;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Linux] ❌ Erreur LDAP : {ex.Message}");
+                _logger.LogError(ex, "[Linux] ❌ Erreur LDAP lors de l'authentification de {Username}", username);
                 return false;
             }
         }

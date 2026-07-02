@@ -1,29 +1,37 @@
-﻿# utilisation de .Net9 SDK pour construit l'appli
-FROM mcr.microsoft.com/dotnet/sdk:9.0-windowsservercore-ltsc2019 AS build-env
+# Utilisation du SDK .NET 9 sur Ubuntu Jammy pour construire l'application
+FROM mcr.microsoft.com/dotnet/sdk:9.0-jammy AS build-env
 WORKDIR /app
 
-#COPY du FICHIER .csproj et le restorer dans docker
+# Copie du fichier .csproj et restauration des dépendances
 COPY *.csproj ./
 RUN dotnet restore
 
-# Copier le reste du code 
+# Copie du reste du code et compilation
 COPY . ./
 RUN dotnet publish -c Release -o out
 
-
-# Utiliser l'image de base de .NET 9 runtime pour l'exécution
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-windowsservercore-ltsc2019 AS runtime
+# Utilisation de l'image de base de .NET 9 Runtime sur Ubuntu Jammy pour l'exécution
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-jammy AS runtime
 WORKDIR /app
 
 # Installer les dépendances LDAP
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libldap-2.5-0 \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/publish .
 
-# Exposer le port de l'application
-EXPOSE 8731
+# Copier l'application compilée
+COPY --from=build-env /app/out .
+
+# Copier le certificat SSL
+COPY edvwildcard.pfx .
+
+# Configurer l'utilisateur non-root par défaut pour plus de sécurité
+USER $APP_UID
+
+# Exposer les ports HTTP (8080) et HTTPS (8443)
+EXPOSE 8080
+EXPOSE 8443
 
 # Démarrer l'application
-ENV ASPNETCORE_URLS=http://+:8731
+ENV ASPNETCORE_URLS="http://+:8080;https://+:8443"
 ENTRYPOINT ["dotnet", "flightManagerAuth.dll"]
