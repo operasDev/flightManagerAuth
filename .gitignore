@@ -6,3 +6,7 @@ obj/
 .env
 .env-example
 web.config
+edvwildcard.pfx
+pfxkey.txt
+
+

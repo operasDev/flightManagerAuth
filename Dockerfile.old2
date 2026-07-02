@@ -14,16 +14,11 @@ RUN dotnet publish -c Release -o out
 # Utiliser l'image de base de .NET 9 runtime pour l'exécution
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-windowsservercore-ltsc2019 AS runtime
 WORKDIR /app
+COPY --from=build-env /app/out .
 
-# Installer les dépendances LDAP
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libldap-2.5-0 \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/publish .
-
-# Exposer le port de l'application
+# Exposer le port de notre API
 EXPOSE 8731
 
-# Démarrer l'application
+# Définir la commande de démarage
 ENV ASPNETCORE_URLS=http://+:8731
 ENTRYPOINT ["dotnet", "flightManagerAuth.dll"]
