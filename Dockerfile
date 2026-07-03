@@ -14,9 +14,11 @@ RUN dotnet publish -c Release -o out
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble AS runtime
 WORKDIR /app
 
-# Installer les dépendances LDAP
+# Installer les dépendances LDAP et créer les symlinks pour .NET 9
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libldap2 \
+    && ln -s /usr/lib/x86_64-linux-gnu/libldap.so.2 /usr/lib/x86_64-linux-gnu/libldap-2.5.so.0 \
+    && ln -s /usr/lib/x86_64-linux-gnu/liblber.so.2 /usr/lib/x86_64-linux-gnu/liblber-2.5.so.0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier l'application compilée
