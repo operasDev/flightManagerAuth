@@ -1,5 +1,5 @@
 # Utilisation du SDK .NET 9 sur Ubuntu Jammy pour construire l'application
-FROM mcr.microsoft.com/dotnet/sdk:9.0-jammy AS build-env
+FROM mcr.microsoft.com/dotnet/sdk:9.0-noble AS build-env
 WORKDIR /app
 
 # Copie du fichier .csproj et restauration des dépendances
@@ -11,7 +11,7 @@ COPY . ./
 RUN dotnet publish -c Release -o out
 
 # Utilisation de l'image de base de .NET 9 Runtime sur Ubuntu Jammy pour l'exécution
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-jammy AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble AS runtime
 WORKDIR /app
 
 # Installer les dépendances LDAP
