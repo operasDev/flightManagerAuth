@@ -72,26 +72,45 @@ namespace FlightManagerApp.Controllers
 
         private bool AuthenticateWithLdap(string domain, string username, string password)
         {
-            try
-            {
-                string bindDn = $"{username}@{domain}";
-                using (var ldapConnection = new LdapConnection(new LdapDirectoryIdentifier(_ldapServer, _ldapPort)))
-                {
-                    ldapConnection.SessionOptions.SecureSocketLayer = _ldapUseSsl;
-                    ldapConnection.AuthType = AuthType.Basic;
-                    ldapConnection.SessionOptions.ProtocolVersion = 3;
-                    ldapConnection.Credential = new NetworkCredential(bindDn, password);
-                    ldapConnection.Bind(); // Teste la connexion
+            // Essayer plusieurs formats de nom d'utilisateur car Linux est très strict sur le format LDAP
+            string[] formatsToTry = new string[] 
+            { 
+                $"{username}@{domain}", // Format UPN (ex: hkoffi@edv-ops.com)
+                $"{domain}\\{username}", // Format NT4 (ex: edv-ops.com\hkoffi)
+                domain.Split('.')[0] + $"\\{username}", // Format NetBIOS (ex: edv-ops\hkoffi)
+                username // Juste le nom d'utilisateur
+            };
 
-                    _logger.LogInformation("[Linux] Authentification LDAP réussie pour {Username}", username);
-                    return true;
+            foreach (var bindFormat in formatsToTry)
+            {
+                try
+                {
+                    using (var ldapConnection = new LdapConnection(new LdapDirectoryIdentifier(_ldapServer, _ldapPort)))
+                    {
+                        ldapConnection.SessionOptions.SecureSocketLayer = _ldapUseSsl;
+                        ldapConnection.AuthType = AuthType.Basic;
+                        ldapConnection.SessionOptions.ProtocolVersion = 3;
+                        ldapConnection.Credential = new NetworkCredential(bindFormat, password);
+                        ldapConnection.Bind(); // Teste la connexion
+
+                        _logger.LogInformation("[Linux] Authentification LDAP réussie pour {Username} avec le format {Format}", username, bindFormat);
+                        return true;
+                    }
+                }
+                catch (LdapException ex) when (ex.ErrorCode == 49) // 49 = Invalid Credentials
+                {
+                    _logger.LogWarning("[Linux] Format LDAP {Format} rejeté (Credentials Invalid). Essai du suivant...", bindFormat);
+                    continue; // Try next format
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Linux] Échec avec le format {Format}", bindFormat);
+                    // On continue d'essayer les autres formats même s'il y a une autre erreur
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[Linux] ❌ Erreur LDAP lors de l'authentification de {Username}", username);
-                return false;
-            }
+
+            _logger.LogError("[Linux] ❌ Tous les formats de connexion LDAP ont échoué pour {Username}", username);
+            return false;
         }
     
     }
