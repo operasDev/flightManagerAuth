@@ -19,11 +19,11 @@ namespace FlightManagerApp.Controllers
         public AuthController(IConfiguration config, ILogger<AuthController> logger)
         {
             _logger = logger;
-            // Prioriser appsettings.json, sinon fallback sur variables d'environnement
-            _ldapServer = config["LdapSettings:Server"] ?? Environment.GetEnvironmentVariable("LDAP_SERVER") ?? "";
-            _ldapDomain = config["LdapSettings:Domain"] ?? Environment.GetEnvironmentVariable("LDAP_DOMAIN") ?? "";
-            _ldapPort = config.GetValue<int>("LdapSettings:Port", 636); // 636 par défaut pour LDAPS
-            _ldapUseSsl = config.GetValue<bool>("LdapSettings:UseSsl", true);
+            // Prioriser les variables d'environnement, sinon fallback sur appsettings.json
+            _ldapServer = Environment.GetEnvironmentVariable("LDAP_SERVER") ?? config["LdapSettings:Server"] ?? "";
+            _ldapDomain = Environment.GetEnvironmentVariable("LDAP_DOMAIN") ?? config["LdapSettings:Domain"] ?? "";
+            _ldapPort = config.GetValue<int>("LdapSettings:Port", 389);
+            _ldapUseSsl = config.GetValue<bool>("LdapSettings:UseSsl", false);
         }
         [HttpPost("login")]
         [Consumes("application/json")]
