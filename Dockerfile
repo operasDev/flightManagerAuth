@@ -22,16 +22,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copier l'application compilée
 COPY --from=build-env /app/out .
 
-# Copier le certificat SSL
-COPY edvwildcard.pfx .
-
+# Certificat SSL géré par Nginx
 # Configurer l'utilisateur non-root par défaut pour plus de sécurité
 USER $APP_UID
 
-# Exposer les ports HTTP (8080) et HTTPS (8443)
+# Exposer le port HTTP (8080)
 EXPOSE 8080
-EXPOSE 8443
 
-# Démarrer l'application
-ENV ASPNETCORE_URLS="http://+:8080;https://+:8443"
+# Démarrer l'application (HTTP uniquement, le HTTPS est géré par Nginx)
+ENV ASPNETCORE_URLS="http://+:8080"
 ENTRYPOINT ["dotnet", "flightManagerAuth.dll"]
