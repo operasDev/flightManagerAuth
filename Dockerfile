@@ -16,7 +16,7 @@ WORKDIR /app
 
 # Installer les dépendances LDAP
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libldap-2.5-0 \
+    libldap2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier l'application compilée
